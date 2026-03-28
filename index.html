@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubnetDrill — IPv4 Subnetting Trainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0c0f;
+    --panel:    #111418;
+    --border:   #1e2530;
+    --accent:   #00e5a0;
+    --accent2:  #ff6b35;
+    --warn:     #ffd166;
+    --dim:      #3a4455;
+    --muted:    #6b7a90;
+    --text:     #c8d6e5;
+    --bright:   #eaf2ff;
+    --correct:  #00c97a;
+    --wrong:    #ff4d6d;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Barlow Condensed', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px 60px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blobs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,229,160,.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 780px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    padding: 40px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .logo-mark {
+    width: 48px; height: 48px;
+    border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--accent);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .logo-mark::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid rgba(0,229,160,.3);
+  }
+
+  .header-text h1 {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 2.4rem;
+    letter-spacing: .05em;
+    line-height: 1;
+    color: var(--bright);
+    text-transform: uppercase;
+  }
+  .header-text p {
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  /* Score bar */
+  .scorebar {
+    margin-left: auto;
+    text-align: right;
+    font-family: var(--mono);
+  }
+  .scorebar .score-num {
+    font-size: 2.8rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .scorebar .score-label {
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+  }
+  .scorebar .score-streak {
+    font-size: .72rem;
+    color: var(--warn);
+    margin-top: 2px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--accent);
+  }
+
+  /* IP Display */
+  .ip-display {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .ip-label {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--muted);
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ip-value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    color: var(--bright);
+    letter-spacing: .06em;
+  }
+  .cidr-badge {
+    display: inline-block;
+    background: rgba(0,229,160,.12);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    padding: 6px 16px;
+    letter-spacing: .05em;
+  }
+
+  /* Progress dots */
+  .progress-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+  .progress-dot {
+    width: 28px; height: 6px;
+    background: var(--dim);
+    transition: background .3s;
+  }
+  .progress-dot.done   { background: var(--accent); }
+  .progress-dot.active { background: var(--warn); }
+  .progress-dot.wrong  { background: var(--wrong); }
+  .progress-label {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--muted);
+    margin-left: 8px;
+    letter-spacing: .1em;
+  }
+
+  /* Question */
+  .question-text {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: var(--bright);
+    letter-spacing: .04em;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+
+  /* Input group */
+  .input-group {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .answer-input {
+    flex: 1;
+    min-width: 220px;
+    background: #0d1015;
+    border: 1px solid var(--dim);
+    color: var(--bright);
+    font-family: var(--mono);
+    font-size: 1.3rem;
+    padding: 14px 18px;
+    outline: none;
+    letter-spacing: .08em;
+    transition: border-color .2s;
+  }
+  .answer-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,160,.08);
+  }
+  .answer-input.correct { border-color: var(--correct); }
+  .answer-input.wrong   { border-color: var(--wrong);   }
+
+  .btn {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    border: none;
+    cursor: pointer;
+    transition: all .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #00ffb2; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--dim);
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+  /* Feedback */
+  .feedback {
+    margin-top: 18px;
+    padding: 16px 20px;
+    border-left: 3px solid transparent;
+    font-family: var(--mono);
+    font-size: .9rem;
+    display: none;
+    animation: slideIn .2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .feedback.correct {
+    display: block;
+    border-color: var(--correct);
+    background: rgba(0,201,122,.07);
+    color: var(--correct);
+  }
+  .feedback.wrong {
+    display: block;
+    border-color: var(--wrong);
+    background: rgba(255,77,109,.07);
+    color: var(--wrong);
+  }
+  .feedback .correct-val {
+    color: var(--bright);
+    margin-top: 6px;
+  }
+
+  /* Binary breakdown (hint) */
+  .binary-hint {
+    background: #0d1015;
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: .75rem;
+    color: var(--muted);
+    line-height: 1.9;
+    display: none;
+  }
+  .binary-hint.visible { display: block; }
+  .binary-hint .bit-on  { color: var(--accent); }
+  .binary-hint .bit-off { color: var(--dim); }
+  .binary-hint .octet-sep { color: var(--border); margin: 0 4px; }
+
+  /* Reference table */
+  .ref-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 24px 32px;
+    margin-bottom: 20px;
+  }
+  .ref-title {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ref-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+  }
+  .ref-row {
+    font-family: var(--mono);
+    font-size: .75rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    transition: all .15s;
+    cursor: default;
+  }
+  .ref-row:hover {
+    border-color: var(--border);
+    color: var(--text);
+    background: rgba(255,255,255,.02);
+  }
+  .ref-row .cidr { color: var(--accent2); }
+  .ref-row .hosts { color: var(--accent); }
+
+  /* Controls row */
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+  .ctrl-label {
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .diff-btn {
+    font-family: var(--mono);
+    font-size: .8rem;
+    padding: 7px 14px;
+    border: 1px solid var(--dim);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: .06em;
+    transition: all .15s;
+  }
+  .diff-btn.active, .diff-btn:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,107,53,.08);
+  }
+  .hint-btn {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: 7px 14px;
+    border: 1px solid var(--dim);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: .08em;
+    transition: all .15s;
+  }
+  .hint-btn:hover { color: var(--warn); border-color: var(--warn); }
+
+  /* Next question btn */
+  .next-row {
+    display: none;
+    margin-top: 20px;
+    gap: 12px;
+  }
+  .next-row.visible { display: flex; }
+
+  /* Results screen */
+  #results-screen { display: none; }
+  #results-screen.visible { display: block; }
+  #quiz-screen { display: block; }
+  #quiz-screen.hidden { display: none; }
+
+  .result-big {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 5rem;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: .03em;
+  }
+  .result-sub {
+    font-family: var(--mono);
+    font-size: .85rem;
+    color: var(--muted);
+    margin-top: 8px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .grade-bar {
+    height: 6px;
+    background: var(--dim);
+    margin: 24px 0 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .grade-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #00ffcc);
+    transition: width 1s cubic-bezier(.16,1,.3,1);
+  }
+
+  .history-list {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .history-item {
+    font-family: var(--mono);
+    font-size: .8rem;
+    display: grid;
+    grid-template-columns: 160px 80px 1fr;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    align-items: center;
+  }
+  .history-item.h-correct { border-left-color: var(--correct); }
+  .history-item.h-wrong   { border-left-color: var(--wrong); border-left-width: 3px; }
+  .h-ip   { color: var(--bright); }
+  .h-q    { color: var(--muted); font-size: .7rem; }
+  .h-ans  { color: var(--text); }
+  .h-icon { font-size: 1rem; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--dim); }
+
+  @media (max-width: 600px) {
+    .ip-value { font-size: 1.4rem; }
+    header { flex-wrap: wrap; }
+    .scorebar { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-mark">/24</div>
+    <div class="header-text">
+      <h1>SubnetDrill</h1>
+      <p>IPv4 Subnetting Trainer &mdash; All 4 Octets</p>
+    </div>
+    <div class="scorebar" id="scorebar">
+      <div class="score-num" id="score-display">0</div>
+      <div class="score-label">Score</div>
+      <div class="score-streak" id="streak-display"></div>
+    </div>
+  </header>
+
+  <!-- QUIZ SCREEN -->
+  <div id="quiz-screen">
+
+    <div class="controls">
+      <span class="ctrl-label">Difficulty:</span>
+      <button class="diff-btn active" data-diff="easy" onclick="setDiff(this,'easy')">/8 /16 /24</button>
+      <button class="diff-btn" data-diff="medium" onclick="setDiff(this,'medium')">/8 → /28</button>
+      <button class="diff-btn" data-diff="hard" onclick="setDiff(this,'hard')">/1 → /30</button>
+      <button class="hint-btn" onclick="toggleHint()" id="hint-btn">⬡ Binary Hint</button>
+    </div>
+
+    <div class="card" id="question-card">
+      <div class="progress-row" id="progress-row"></div>
+
+      <div class="ip-display">
+        <div>
+          <div class="ip-label">IP Address</div>
+          <div class="ip-value" id="ip-display">192.168.1.0</div>
+        </div>
+        <div>
+          <div class="ip-label">Subnet Mask</div>
+          <div class="cidr-badge" id="cidr-display">/24</div>
+        </div>
+        <div>
+          <div class="ip-label">Dotted Mask</div>
+          <div style="font-family:var(--mono);font-size:.95rem;color:var(--muted)" id="dotted-display">255.255.255.0</div>
+        </div>
+      </div>
+
+      <div class="binary-hint" id="binary-hint"></div>
+
+      <div class="question-text" id="question-text">What is the Network Address?</div>
+
+      <div class="input-group">
+        <input class="answer-input" id="answer-input" type="text"
+          placeholder="x.x.x.x" autocomplete="off" autocorrect="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')checkAnswer()">
+        <button class="btn btn-primary" onclick="checkAnswer()">CHECK</button>
+      </div>
+
+      <div class="feedback" id="feedback"></div>
+
+      <div class="next-row" id="next-row">
+        <button class="btn btn-primary" onclick="nextQuestion()">NEXT QUESTION →</button>
+        <button class="btn btn-secondary" onclick="showResults()">END SESSION</button>
+      </div>
+    </div>
+
+    <!-- Subnet reference -->
+    <div class="ref-card">
+      <div class="ref-title">CIDR Quick Reference</div>
+      <div class="ref-grid" id="ref-grid"></div>
+    </div>
+
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="results-screen">
+    <div class="card" style="padding:40px;">
+      <div class="result-big" id="result-big">--</div>
+      <div class="result-sub" id="result-sub">Session Complete</div>
+      <div class="grade-bar"><div class="grade-fill" id="grade-fill" style="width:0%"></div></div>
+      <div id="grade-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.12em;"></div>
+
+      <div class="history-list" id="history-list"></div>
+
+      <div style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="restartQuiz()">NEW SESSION</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let state = {
+  ip: [0,0,0,0],
+  cidr: 24,
+  questions: [],
+  qIndex: 0,
+  score: 0,
+  streak: 0,
+  answered: false,
+  history: [],
+  diff: 'easy',
+  hintVisible: false,
+  totalQ: 10,
+  results: [],
+};
+
+// CIDR ranges per difficulty
+const DIFF_RANGES = {
+  easy:   [8,16,24],
+  medium: [8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],
+  hard:   Array.from({length:30},(_,i)=>i+1),
+};
+
+// Question types
+const Q_TYPES = ['network','broadcast','first','last','hosts','mask','wildcard'];
+
+// ── CIDR math ─────────────────────────────────────────────────────────────────
+function cidrToMask(cidr) {
+  const mask = [];
+  for (let i=0;i<4;i++) {
+    const bits = Math.min(8, Math.max(0, cidr - i*8));
+    mask.push(256 - (1 << (8-bits)));
+  }
+  return mask;
+}
+
+function maskToWildcard(mask) {
+  return mask.map(o => 255 - o);
+}
+
+function networkAddr(ip, mask) {
+  return ip.map((o,i) => o & mask[i]);
+}
+
+function broadcastAddr(net, mask) {
+  const wc = maskToWildcard(mask);
+  return net.map((o,i) => o | wc[i]);
+}
+
+function firstHost(net) {
+  const f = [...net];
+  f[3] += 1;
+  return f;
+}
+
+function lastHost(bc) {
+  const l = [...bc];
+  l[3] -= 1;
+  return l;
+}
+
+function numHosts(cidr) {
+  if (cidr >= 31) return cidr === 31 ? 2 : 1;
+  return Math.pow(2, 32-cidr) - 2;
+}
+
+function fmtIP(arr) { return arr.join('.'); }
+
+function toBinary(arr) {
+  return arr.map(o => o.toString(2).padStart(8,'0')).join('.');
+}
+
+// ── Build questions for one IP/CIDR ──────────────────────────────────────────
+function buildQuestions(ip, cidr) {
+  const mask = cidrToMask(cidr);
+  const wc   = maskToWildcard(mask);
+  const net  = networkAddr(ip, mask);
+  const bc   = broadcastAddr(net, mask);
+  const fh   = firstHost(net);
+  const lh   = lastHost(bc);
+  const nh   = numHosts(cidr);
+
+  return {
+    network:   { q: 'What is the Network Address?',           a: fmtIP(net),  extra: '' },
+    broadcast: { q: 'What is the Broadcast Address?',         a: fmtIP(bc),   extra: '' },
+    first:     { q: 'What is the First Usable Host Address?', a: fmtIP(fh),   extra: cidr<31 ? '' : 'N/A for /31+' },
+    last:      { q: 'What is the Last Usable Host Address?',  a: fmtIP(lh),   extra: cidr<31 ? '' : 'N/A for /31+' },
+    hosts:     { q: 'How many Usable Hosts?',                 a: String(nh),  extra: '(decimal number)' },
+    mask:      { q: 'What is the Subnet Mask (dotted decimal)?', a: fmtIP(mask), extra: '' },
+    wildcard:  { q: 'What is the Wildcard Mask?',             a: fmtIP(wc),   extra: '' },
+  };
+}
+
+// ── Generate session ──────────────────────────────────────────────────────────
+function generateSession() {
+  const qs = [];
+  const range = DIFF_RANGES[state.diff];
+
+  for (let i=0; i<state.totalQ; i++) {
+    const cidr = range[Math.floor(Math.random()*range.length)];
+    // Random host IP in that subnet
+    const ip = [
+      Math.floor(Math.random()*223)+1,
+      Math.floor(Math.random()*256),
+      Math.floor(Math.random()*256),
+      Math.floor(Math.random()*256),
+    ];
+    const qType = Q_TYPES[Math.floor(Math.random()*Q_TYPES.length)];
+    const data = buildQuestions(ip, cidr);
+    qs.push({ ip, cidr, qType, ...data[qType] });
+  }
+  return qs;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderProgress() {
+  const row = document.getElementById('progress-row');
+  row.innerHTML = '';
+  state.questions.forEach((q,i) => {
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot';
+    if (i < state.qIndex) dot.classList.add(state.results[i] ? 'done' : 'wrong');
+    else if (i === state.qIndex) dot.classList.add('active');
+    row.appendChild(dot);
+  });
+  const lbl = document.createElement('span');
+  lbl.className = 'progress-label';
+  lbl.textContent = `${state.qIndex+1} / ${state.totalQ}`;
+  row.appendChild(lbl);
+}
+
+function renderQuestion() {
+  const q = state.questions[state.qIndex];
+  const mask = cidrToMask(q.cidr);
+
+  document.getElementById('ip-display').textContent    = fmtIP(q.ip);
+  document.getElementById('cidr-display').textContent  = `/${q.cidr}`;
+  document.getElementById('dotted-display').textContent = fmtIP(mask);
+  document.getElementById('question-text').textContent =
+    q.q + (q.extra ? `  [${q.extra}]` : '');
+
+  const inp = document.getElementById('answer-input');
+  inp.value = '';
+  inp.className = 'answer-input';
+  inp.placeholder = q.qType === 'hosts' ? 'number' : 'x.x.x.x';
+
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '';
+  document.getElementById('next-row').className = 'next-row';
+
+  state.answered = false;
+  state.hintVisible = false;
+  document.getElementById('binary-hint').className = 'binary-hint';
+
+  renderProgress();
+  renderBinaryHint(q);
+  inp.focus();
+}
+
+function renderBinaryHint(q) {
+  const mask = cidrToMask(q.cidr);
+  const net  = networkAddr(q.ip, mask);
+  const ipBin   = toBinary(q.ip);
+  const maskBin = toBinary(mask);
+  const netBin  = toBinary(net);
+
+  function colorBits(binStr, isNetwork) {
+    return binStr.split('').map((b,i) => {
+      const sep = (i===8||i===17||i===26) ? '<span class="octet-sep">.</span>' : '';
+      const cls = isNetwork
+        ? (i < q.cidr + Math.floor(i/9) ? 'bit-on' : 'bit-off')
+        : (b==='1' ? 'bit-on' : 'bit-off');
+      return sep + `<span class="${cls}">${b}</span>`;
+    }).join('');
+  }
+
+  document.getElementById('binary-hint').innerHTML = `
+    <div>IP:   ${colorBits(ipBin.replace(/\./g,''))}</div>
+    <div>MASK: ${colorBits(maskBin.replace(/\./g,''), true)}</div>
+    <div>NET:  ${colorBits(netBin.replace(/\./g,''))}</div>
+  `;
+}
+
+function toggleHint() {
+  state.hintVisible = !state.hintVisible;
+  const el = document.getElementById('binary-hint');
+  el.className = 'binary-hint' + (state.hintVisible ? ' visible' : '');
+  document.getElementById('hint-btn').style.color = state.hintVisible ? 'var(--warn)' : '';
+  document.getElementById('hint-btn').style.borderColor = state.hintVisible ? 'var(--warn)' : '';
+}
+
+// ── Check answer ──────────────────────────────────────────────────────────────
+function normalize(s) {
+  return s.trim().replace(/\s+/g,'').toLowerCase();
+}
+
+function checkAnswer() {
+  if (state.answered) return;
+  const q   = state.questions[state.qIndex];
+  const inp = document.getElementById('answer-input');
+  const val = normalize(inp.value);
+  if (!val) return;
+
+  const correct = normalize(q.a);
+  const isRight = val === correct;
+
+  state.answered = true;
+  state.results[state.qIndex] = isRight;
+
+  const fb = document.getElementById('feedback');
+  if (isRight) {
+    inp.classList.add('correct');
+    fb.className = 'feedback correct';
+    state.score++;
+    state.streak++;
+    fb.innerHTML = `✓ Correct! <span style="color:var(--muted);font-size:.8rem">+1 point</span>`;
+  } else {
+    inp.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    state.streak = 0;
+    fb.innerHTML = `✗ Incorrect<div class="correct-val">Correct answer: <strong>${q.a}</strong></div>`;
+  }
+
+  state.history.push({
+    ip: fmtIP(q.ip), cidr: q.cidr, q: q.qType, a: q.a, given: inp.value, correct: isRight
+  });
+
+  updateScore();
+  document.getElementById('next-row').className = 'next-row visible';
+  renderProgress();
+}
+
+function updateScore() {
+  document.getElementById('score-display').textContent = state.score;
+  if (state.streak >= 3) {
+    document.getElementById('streak-display').textContent = `🔥 ${state.streak} streak`;
+  } else {
+    document.getElementById('streak-display').textContent = '';
+  }
+}
+
+function nextQuestion() {
+  state.qIndex++;
+  if (state.qIndex >= state.questions.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
+}
+
+// ── Results ───────────────────────────────────────────────────────────────────
+function showResults() {
+  document.getElementById('quiz-screen').className = 'hidden';
+  document.getElementById('results-screen').className = 'visible';
+
+  const total = state.results.length;
+  const pct   = Math.round((state.score / state.totalQ)*100);
+
+  document.getElementById('result-big').textContent = `${state.score}/${state.totalQ}`;
+  document.getElementById('result-sub').textContent = `${pct}% — Session Complete`;
+
+  const grades = [
+    [90,'EXPERT — Subnetting Master'],
+    [75,'PROFICIENT — Solid Skills'],
+    [60,'DEVELOPING — Keep Practicing'],
+    [0, 'BEGINNER — Study More']
+  ];
+  const [,label] = grades.find(([t])=>pct>=t);
+  document.getElementById('grade-label').textContent = label;
+
+  setTimeout(()=>{
+    document.getElementById('grade-fill').style.width = pct+'%';
+  }, 100);
+
+  // History
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+  state.history.forEach(h => {
+    const item = document.createElement('div');
+    item.className = `history-item ${h.correct ? 'h-correct':'h-wrong'}`;
+    item.innerHTML = `
+      <span class="h-ip">${h.ip}/${h.cidr}</span>
+      <span class="h-q">${h.q.toUpperCase()}</span>
+      <span class="h-ans">${h.correct ? '✓' : '✗'} ${h.correct ? h.a : h.given+' → '+h.a}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function restartQuiz() {
+  state.score    = 0;
+  state.streak   = 0;
+  state.qIndex   = 0;
+  state.history  = [];
+  state.results  = [];
+  state.answered = false;
+  state.questions = generateSession();
+
+  document.getElementById('results-screen').className = '';
+  document.getElementById('quiz-screen').className    = '';
+  updateScore();
+  renderQuestion();
+}
+
+// ── Difficulty ────────────────────────────────────────────────────────────────
+function setDiff(btn, diff) {
+  state.diff = diff;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Reference table ───────────────────────────────────────────────────────────
+function buildRefTable() {
+  const grid = document.getElementById('ref-grid');
+  const rows = [
+    [8,16,24,25,26,27,28,29,30].map(c => {
+      const m = cidrToMask(c);
+      const h = numHosts(c);
+      return `<div class="ref-row">
+        <span class="cidr">/${c}</span>
+        <span>${fmtIP(m)}</span>
+        <span class="hosts">${h.toLocaleString()} hosts</span>
+      </div>`;
+    })
+  ];
+  grid.innerHTML = rows.flat().join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildRefTable();
+state.questions = generateSession();
+renderQuestion();
+</script>
+</body>
+</html>
